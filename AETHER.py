@@ -10,6 +10,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from hmmlearn.hmm import GaussianHMM
 from sklearn.metrics import roc_curve, auc, average_precision_score
 import matplotlib.pyplot as plt
+import shap
 import folium
 import os
 import sys
@@ -377,6 +378,90 @@ if "models" in locals() and gdf is not None:
         print(
             f"Top anomaly for {expert_name.upper()} expert found at index {top_anomaly_idx}."
         )
+        
+# Adding Model Explainability using SHAP
+def explain_anomalies_with_xai(gdf, models, scalers, features, num_anomalies_to_explain=3):
+    """
+    Uses SHAP and model introspection to explain the top anomalies for each expert.
 
+    Args:
+        gdf (pd.DataFrame): The main dataframe with anomaly scores.
+        models (dict): The trained expert models.
+        scalers (dict): The trained scalers.
+        features (dict): Dictionary of feature lists for each expert.
+        num_anomalies_to_explain (int): The number of top anomalies to explain for each expert.
+    """
+    print(f"\n\n Section 8: Explaining Top {num_anomalies_to_explain} Anomalies with XAI ")
+
+    # 1. Explain Kinematic and GPS Experts using SHAP
+    for expert_name in ["kinematic", "gps"]:
+        print(f"\n--- Explaining {expert_name.upper()} Expert ---")
+
+        # Get the data and model for the current expert
+        model = models[expert_name]
+        scaler = scalers[expert_name]
+        feature_names = features[expert_name]
+        X_data_scaled = scaler.transform(gdf[feature_names])
+
+        # Find the indices of the top N anomalies
+        top_anomaly_indices = gdf[f'{expert_name}_score'].nlargest(num_anomalies_to_explain).index
+        X_anomalies_scaled = scaler.transform(gdf.loc[top_anomaly_indices, feature_names])
+        
+        # We need a prediction function for SHAP. It's slightly different for each model.
+        if isinstance(model, IsolationForest):
+            # For Isolation Forest, SHAP works with score_samples
+            predict_fn = lambda x: -model.score_samples(x)
+        else: # LocalOutlierFactor
+            # For LOF, SHAP works with decision_function
+            predict_fn = lambda x: -model.decision_function(x)
+
+        # Initialize the SHAP explainer
+        # KernelExplainer is model-agnostic and works well here. We use a sample of the data for the background distribution.
+        explainer = shap.KernelExplainer(predict_fn, shap.sample(X_data_scaled, 50))
+        
+        # Calculate SHAP values for the anomalous instances
+        shap_values = explainer.shap_values(X_anomalies_scaled)
+
+        # Display a SHAP force plot for each top anomaly
+        for i in range(num_anomalies_to_explain):
+            print(f"Explanation for {expert_name} anomaly #{i+1} (Index: {top_anomaly_indices[i]}):")
+            shap.force_plot(
+                explainer.expected_value, 
+                shap_values[i], 
+                gdf.loc[top_anomaly_indices[i], feature_names],
+                matplotlib=True,
+                show=False # We will show it manually
+            )
+            plt.title(f"SHAP Explanation for {expert_name.upper()} Anomaly #{i+1}")
+            plt.show()
+
+    # 2. Explain Sequential Expert by Interpreting Hidden States
+    print("\n--- Explaining SEQUENTIAL Expert (HMM) ---")
+    hmm_model = models['sequential']
+    feature_names = features['sequential']
+    
+    # The "explanation" for an HMM is understanding what its hidden states represent.
+    # We can do this by looking at the mean feature values for each state.
+    state_means = pd.DataFrame(hmm_model.means_, columns=feature_names)
+    state_means['state_label'] = [f'State {i}' for i in range(hmm_model.n_components)]
+    state_means = state_means.set_index('state_label')
+
+    print("The Sequential (HMM) model learned the following behavioral states:")
+    print("These are the average (scaled) feature values that characterize each hidden state.")
+    print(state_means.to_string(float_format="{:.2f}".format))
+    print("\nAnomalies in the HMM are sequences with a low probability, often involving unlikely transitions between these states (e.g., State 1 to State 3).")
+
+
+# This should be the last block of code to run.
 if __name__ == "__main__":
     print("\n AETHER Framework Execution Complete ")
+    
+    # Check if models were trained before trying to explain
+    if "models" in locals() and gdf is not None:
+        # We create a dictionary of all feature sets to pass to the function
+        all_features = {
+            "kinematic": features_kinematic,
+            "gps": features_gps,
+            "sequential": features_sequential
+        }
+        explain_anomalies_with_xai(gdf, models, scalers, all_features)
