@@ -66,3 +66,12 @@ This describes the features in the final dataset used for analysis after process
   - **Description:** The change in heading between consecutive points.
   - **Units:** Degrees
   - **How it was derived:** *(You need to fill this in - e.g., "Calculated as the difference in 'heading' between consecutive timestamps.")*
+ 
+## Citation
+If you use the AETHER software or the associated dataset in your research, please cite the following:
+
+**For the software:**
+Ganapathy, S. (2025). AETHER: An Unsupervised Framework for Flagging Atypical Movement Patterns [Software]. Available from https://github.com/SanjayGanapathy/AETHER.
+
+**For the data:**
+Bustamante, J. (2025). Movebank Data used in Developing AETHER (1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.16990288.
