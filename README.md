@@ -3,7 +3,7 @@
 This document provides metadata for the processed dataset used in the AETHER manuscript, conforming to FAIR (Findable, Accessible, Interoperable, and Reusable) data principles.
 
 ## Source
-- **Original Data Repository:** Movebank (www.movebank.org)
+- **Original Data Repository:** Movebank (available for download on Zenodo: https://zenodo.org/records/16990288)
 - **Study Name:** Common Kestrel (Falco tinnunculus) breeding and non-breeding, Doñana, Spain
 - **Movebank Study ID:** 2970193504
 - **Principal Investigator:** Sergio Hernández-León
